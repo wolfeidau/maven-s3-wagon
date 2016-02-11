@@ -173,8 +173,22 @@ public class S3Wagon extends AbstractWagon implements RequestFactory {
 		return CannedAccessControlList.valueOf(filePermissions.trim());
 	}
 
-	protected ClientConfiguration getClientConfiguration() {
+	protected ClientConfiguration getClientConfiguration(ProxyInfo proxyInfo) {
 		ClientConfiguration configuration = new ClientConfiguration();
+
+		if (proxyInfo != null) {
+
+			configuration.setProxyHost(proxyInfo.getHost());
+			configuration.setProxyPort(proxyInfo.getPort());
+
+			// because I don't trust it.
+			System.getProperties().put("http.proxySet", "true");
+			System.getProperties().put("http.proxyPort", proxyInfo.getPort());
+			System.getProperties().put("http.proxyHost", proxyInfo.getHost());
+			System.getProperties().put("http.nonProxyHosts", proxyInfo.getNonProxyHosts());
+		}
+
+
 		if (http) {
 			log.info("http selected");
 			configuration.setProtocol(Protocol.HTTP);
@@ -182,8 +196,8 @@ public class S3Wagon extends AbstractWagon implements RequestFactory {
 		return configuration;
 	}
 
-	protected AmazonS3Client getAmazonS3Client(AWSCredentials credentials) {
-		ClientConfiguration configuration = getClientConfiguration();
+	protected AmazonS3Client getAmazonS3Client(AWSCredentials credentials, ProxyInfo proxyInfo) {
+		ClientConfiguration configuration = getClientConfiguration(proxyInfo);
 		return new AmazonS3Client(credentials, configuration);
 	}
 
@@ -191,7 +205,7 @@ public class S3Wagon extends AbstractWagon implements RequestFactory {
 	protected void connectToRepository(Repository source, AuthenticationInfo auth, ProxyInfo proxy) {
 
 		AWSCredentials credentials = getCredentials(auth);
-		this.client = getAmazonS3Client(credentials);
+		this.client = getAmazonS3Client(credentials, proxy);
 		this.transferManager = new TransferManager(credentials);
 		this.bucketName = source.getHost();
 		validateBucket(client, bucketName);
